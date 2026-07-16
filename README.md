@@ -37,7 +37,7 @@ Use **ZeroGPU** (or free Gradio CPU if available). Do **not** use the Docker SDK
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-local.txt
 export LLM_PROVIDER=gemini
 export GEMINI_API_KEY=your_key_here
 python gradio_app.py
@@ -46,6 +46,7 @@ python gradio_app.py
 ## Local run (FastAPI + Ollama)
 
 ```bash
+pip install -r requirements-local.txt
 export LLM_PROVIDER=ollama
 export OLLAMA_MODEL=qwen3:4b
 ollama serve
