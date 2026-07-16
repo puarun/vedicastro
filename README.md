@@ -26,7 +26,7 @@ In **Settings → Secrets** add:
 
 Optional:
 
-- `GEMINI_MODEL` (default `gemini-3.5-flash-lite`)
+- `GEMINI_MODEL` (default `gemini-3.1-flash-lite`)
 - `LLM_PROVIDER=gemini`
 
 ## Hardware
