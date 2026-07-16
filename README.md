@@ -33,8 +33,6 @@ Optional:
 
 Use **ZeroGPU** (or free Gradio CPU if available). Do **not** use the Docker SDK on the free tier.
 
-If you previously created this Space as Docker, switch SDK back to **Gradio** in Settings (or recreate as Gradio + ZeroGPU).
-
 ## Local run (Gradio)
 
 ```bash
