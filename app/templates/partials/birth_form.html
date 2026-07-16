@@ -1,0 +1,39 @@
+{# Shared birth-details form. Pass action, button_label, and optional values. #}
+<form method="post" action="{{ action }}" class="birth-form" autocomplete="off">
+  <label>
+    Name
+    <input type="text" name="name" placeholder="Your name" value="{{ form.name or '' }}" autocomplete="off" />
+  </label>
+  <label>
+    Place of birth
+    <input type="text" name="place" required placeholder="City, Country" value="{{ form.place or '' }}" autocomplete="off" />
+  </label>
+  <div class="row">
+    <label>
+      Date of birth
+      <input type="date" name="birth_date" required value="{{ form.birth_date or '' }}" autocomplete="off" />
+    </label>
+    <label>
+      Time of birth
+      <input type="time" name="birth_time" required value="{{ form.birth_time or '' }}" autocomplete="off" />
+    </label>
+    <label>
+      TZ offset (hours)
+      <input type="text" name="timezone_offset" placeholder="e.g. 5.5 for IST" value="{{ form.timezone_offset or '' }}" autocomplete="off" />
+    </label>
+  </div>
+  <details {% if form.latitude or form.longitude %}open{% endif %}>
+    <summary>Advanced: manual coordinates (optional)</summary>
+    <div class="row">
+      <label>
+        Latitude
+        <input type="text" name="latitude" placeholder="leave blank to geocode place" value="{{ form.latitude or '' }}" autocomplete="off" />
+      </label>
+      <label>
+        Longitude
+        <input type="text" name="longitude" placeholder="leave blank to geocode place" value="{{ form.longitude or '' }}" autocomplete="off" />
+      </label>
+    </div>
+  </details>
+  <button type="submit">{{ button_label }}</button>
+</form>

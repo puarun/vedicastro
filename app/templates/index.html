@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}VedicAstro — Birth chart{% endblock %}
+{% block content %}
+<section class="hero-form">
+  <h1>VedicAstro</h1>
+  <p class="lede">Enter <strong>your</strong> place, date, and time of birth. Nothing is prefilled except what you type.</p>
+
+  {% if error %}
+  <div class="alert">{{ error }}</div>
+  {% endif %}
+
+  {% set form = form if form is defined else {} %}
+  {% set action = "/profiles" %}
+  {% set button_label = "Generate charts" %}
+  {% include "partials/birth_form.html" %}
+</section>
+
+{% if profiles %}
+<section class="recent">
+  <h2>Saved profiles</h2>
+  <p class="muted">Open a saved chart, or fill the form above to create a new one.</p>
+  <ul class="profile-list">
+    {% for p in profiles %}
+    <li>
+      <a href="/profiles/{{ p.id }}">{{ p.name }}</a>
+      <span>{{ p.birth_date }} {{ p.birth_time }} · {{ p.place }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

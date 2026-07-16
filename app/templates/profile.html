@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% from "macros/charts.html" import chart_diagram %}
+{% block title %}{{ profile.name }} — VedicAstro{% endblock %}
+{% block content %}
+<nav class="crumb"><a href="/">← New chart</a></nav>
+
+<section class="profile-head">
+  <h1>{{ profile.name }}</h1>
+  <p>{{ profile.birth_date }} {{ profile.birth_time }} · TZ {{ profile.timezone_offset }}h</p>
+  <p class="muted">{{ profile.place }} ({{ '%.4f'|format(profile.latitude) }}, {{ '%.4f'|format(profile.longitude) }})</p>
+  <p class="muted">Ayanamsa {{ charts.ayanamsa_name }} {{ charts.ayanamsa }}° · Moon in {{ charts.moon_nakshatra }} ({{ charts.moon_nakshatra_lord }})</p>
+
+  <details class="edit-birth" {% if edit_error %}open{% endif %}>
+    <summary>Edit birth details</summary>
+    <p class="muted">Change these fields and recalculate. This updates this profile (does not open a different saved chart).</p>
+    {% if edit_error %}
+    <div class="alert">{{ edit_error }}</div>
+    {% endif %}
+    {% set form = {
+      "name": profile.name,
+      "place": profile.place,
+      "birth_date": profile.birth_date,
+      "birth_time": profile.birth_time,
+      "timezone_offset": profile.timezone_offset,
+      "latitude": profile.latitude,
+      "longitude": profile.longitude
+    } %}
+    {% set action = "/profiles/" ~ profile.id ~ "/update" %}
+    {% set button_label = "Save and recalculate" %}
+    {% include "partials/birth_form.html" %}
+  </details>
+</section>
+
+<section class="ask-panel" id="ask">
+  <h2>Ask {{ llm_label }}</h2>
+  <p class="muted">General → D1 · Relationships → D9 · Career → D10. Full D1/D9/D10 + dasa + gochar are included.</p>
+  {% if error %}
+  <div class="alert">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="/profiles/{{ profile.id }}/ask" class="ask-form">
+    <label>
+      Domain
+      <select name="domain">
+        <option value="auto" {% if domain == 'auto' %}selected{% endif %}>Auto-detect</option>
+        <option value="general" {% if domain == 'general' %}selected{% endif %}>General (D1)</option>
+        <option value="relationship" {% if domain == 'relationship' %}selected{% endif %}>Relationship (D9)</option>
+        <option value="career" {% if domain == 'career' %}selected{% endif %}>Career (D10)</option>
+      </select>
+    </label>
+    <label>
+      Question
+      <textarea name="question" rows="3" required placeholder="e.g. What does my current period suggest for career focus?">{{ question }}</textarea>
+    </label>
+    <button type="submit">Ask AI</button>
+  </form>
+  {% if answer_html %}
+  <article class="answer">
+    <h3>Answer {% if resolved_domain %}<span class="badge">{{ resolved_domain }}</span>{% endif %}</h3>
+    <div class="answer-body">{{ answer_html | safe }}</div>
+  </article>
+  {% endif %}
+</section>
+
+<section class="charts">
+  <div class="charts-toolbar">
+    <h2 class="charts-heading">Charts</h2>
+    <div class="style-toggle" role="group" aria-label="Chart style">
+      <button type="button" class="toggle-btn active" data-style="south">South Indian</button>
+      <button type="button" class="toggle-btn" data-style="north">North Indian</button>
+    </div>
+  </div>
+
+  {% for c in chart_layouts %}
+    {{ chart_diagram(c) }}
+  {% endfor %}
+
+  <details class="planet-tables">
+    <summary>Planet tables (degrees &amp; nakshatras)</summary>
+    <h3>D1 details</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Planet</th><th>Sign</th><th>Degree</th><th>House</th><th>Nakshatra</th><th>Pada</th></tr>
+        </thead>
+        <tbody>
+          {% for p in charts.d1.planets %}
+          <tr>
+            <td>{{ p.planet }}</td>
+            <td>{{ p.sign }}</td>
+            <td>{{ p.degree }}°</td>
+            <td>{{ p.house }}</td>
+            <td>{{ p.nakshatra }}</td>
+            <td>{{ p.nakshatra_pada }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <h3>D9 details</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Planet</th><th>Sign</th><th>House</th></tr></thead>
+        <tbody>
+          {% for p in charts.d9.planets %}
+          <tr><td>{{ p.planet }}</td><td>{{ p.sign }}</td><td>{{ p.house }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <h3>D10 details</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Planet</th><th>Sign</th><th>House</th></tr></thead>
+        <tbody>
+          {% for p in charts.d10.planets %}
+          <tr><td>{{ p.planet }}</td><td>{{ p.sign }}</td><td>{{ p.house }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+<section class="dasa">
+  <h2>Vimshottari Dasa</h2>
+  {% if dasa.current_mahadasa %}
+  <p><strong>Current Mahadasa:</strong> {{ dasa.current_mahadasa.lord }}
+    ({{ dasa.current_mahadasa.start }} → {{ dasa.current_mahadasa.end }})</p>
+  {% endif %}
+  {% if dasa.current_antardasa %}
+  <p><strong>Current Antardasa:</strong> {{ dasa.current_antardasa.maha_lord }}–{{ dasa.current_antardasa.antar_lord }}
+    ({{ dasa.current_antardasa.start }} → {{ dasa.current_antardasa.end }})</p>
+  {% endif %}
+
+  <h3>Mahadasa</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Lord</th><th>Start</th><th>End</th><th>Years</th></tr></thead>
+      <tbody>
+        {% for m in dasa.mahadasas[:12] %}
+        <tr class="{% if dasa.current_mahadasa and m.start == dasa.current_mahadasa.start %}current{% endif %}">
+          <td>{{ m.lord }}{% if m.partial %} *{% endif %}</td>
+          <td>{{ m.start }}</td>
+          <td>{{ m.end }}</td>
+          <td>{{ m.years }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Antardasa (current & next mahadasa)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Maha</th><th>Antar</th><th>Start</th><th>End</th><th>Years</th></tr></thead>
+      <tbody>
+        {% for a in antar_view %}
+        <tr class="{% if dasa.current_antardasa and a.start == dasa.current_antardasa.start and a.antar_lord == dasa.current_antardasa.antar_lord %}current{% endif %}">
+          <td>{{ a.maha_lord }}</td>
+          <td>{{ a.antar_lord }}</td>
+          <td>{{ a.start }}</td>
+          <td>{{ a.end }}</td>
+          <td>{{ a.years }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="gochar">
+  <h2>Gochar — current</h2>
+  <p class="muted">As of {{ gochar.current.when_utc }} UTC</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Planet</th><th>Sign</th><th>Degree</th><th>House (natal Asc)</th><th>Nakshatra</th></tr></thead>
+      <tbody>
+        {% for p in gochar.current.planets %}
+        <tr>
+          <td>{{ p.planet }}</td>
+          <td>{{ p.sign }}</td>
+          <td>{{ p.degree }}°</td>
+          <td>{{ p.house_from_natal_asc }}</td>
+          <td>{{ p.nakshatra }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Upcoming sign changes (~90 days)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Planet</th><th>From</th><th>Into</th><th>Natal house</th></tr></thead>
+      <tbody>
+        {% for e in gochar.upcoming[:20] %}
+        <tr>
+          <td>{{ e.date }}</td>
+          <td>{{ e.planet }}</td>
+          <td>{{ e.from_sign }}</td>
+          <td>{{ e.into_sign }}</td>
+          <td>{{ e.house_from_natal_asc or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

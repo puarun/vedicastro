@@ -1,0 +1,48 @@
+{% macro chart_diagram(chart) %}
+<article class="chart-block">
+  <div class="chart-block-head">
+    <h2>{{ chart.title }}</h2>
+    <p class="muted">Lagna: {{ chart.asc_label or chart.asc_sign }} ({{ chart.asc_sign_sa }})</p>
+  </div>
+
+  <div class="chart-view south-view">
+    <div class="rasi-grid south-grid" aria-label="South Indian {{ chart.title }}">
+      {% for cell in chart.south %}
+      <div class="rasi-cell{% if cell.is_lagna %} lagna{% endif %}"
+           style="grid-row: {{ cell.row + 1 }}; grid-column: {{ cell.col + 1 }};">
+        <div class="cell-sign" title="{{ cell.sign }}">{{ cell.sign_short }}</div>
+        <div class="cell-planets">
+          {% for p in cell.planets %}
+          <span class="planet-chip{% if p.abbr == 'As' %} asc{% endif %}" title="{{ p.name }}{% if p.degree is not none %} {{ p.degree }}°{% endif %}">{{ p.abbr }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <div class="rasi-center" style="grid-row: 2 / span 2; grid-column: 2 / span 2;">
+        <span>{{ chart.title.split('—')[0].strip() }}</span>
+        <small>South Indian</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-view north-view" hidden>
+    <div class="rasi-grid north-grid" aria-label="North Indian {{ chart.title }}">
+      {% for cell in chart.north %}
+      <div class="rasi-cell{% if cell.is_lagna %} lagna{% endif %}"
+           style="grid-row: {{ cell.row + 1 }}; grid-column: {{ cell.col + 1 }};">
+        <div class="cell-sign" title="House {{ cell.house }} · {{ cell.sign }}">H{{ cell.house }} · {{ cell.sign_short }}</div>
+        <div class="cell-planets">
+          {% for p in cell.planets %}
+          <span class="planet-chip{% if p.abbr == 'As' %} asc{% endif %}" title="{{ p.name }}{% if p.degree is not none %} {{ p.degree }}°{% endif %}">{{ p.abbr }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <div class="rasi-center" style="grid-row: 2 / span 2; grid-column: 2 / span 2;">
+        <span>{{ chart.title.split('—')[0].strip() }}</span>
+        <small>North Indian</small>
+      </div>
+    </div>
+  </div>
+</article>
+{% endmacro %}
