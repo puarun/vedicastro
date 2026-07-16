@@ -1,19 +1,20 @@
 """
 VedicAstro — Hugging Face Gradio entrypoint (ZeroGPU-compatible).
 
-Astrology runs on CPU; Gemini Q&A uses the API (no local GPU needed).
+ZeroGPU Spaces require at least one `@spaces.GPU` function at startup.
+We decorate Ask AI; chart math stays on CPU.
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
-from typing import Any
+from typing import Any, Callable
 
 import gradio as gr
 
-# Optional ZeroGPU helper (available on HF Spaces). Not required for Gemini/CPU work.
 try:
-    import spaces  # noqa: F401
+    import spaces
 except ImportError:
     spaces = None  # type: ignore
 
@@ -25,8 +26,14 @@ from app.geo import estimate_timezone_offset, geocode_place
 from app.llm import ask_llm, build_context, classify_domain, format_answer_html
 from app.ui_html import all_charts_html, dasa_html, gochar_html, planet_table_html
 
-# Public demo defaults to Gemini on Spaces
 os.environ.setdefault("LLM_PROVIDER", "gemini")
+
+
+def _gpu(fn: Callable) -> Callable:
+    """Apply ZeroGPU decorator when running on Hugging Face Spaces."""
+    if spaces is None:
+        return fn
+    return spaces.GPU(fn)
 
 
 def _resolve_place(
@@ -106,7 +113,9 @@ def refresh_style(chart_style: str, state: dict[str, Any] | None):
     return all_charts_html(state["charts"], style), state
 
 
-async def ask(question: str, domain: str, state: dict[str, Any] | None) -> str:
+@_gpu
+def ask(question: str, domain: str, state: dict[str, Any] | None) -> str:
+    """ZeroGPU-decorated entry for Q&A (required on ZeroGPU hardware)."""
     if not state or "charts" not in state:
         raise gr.Error("Generate a chart first, then ask a question.")
     if not (question or "").strip():
@@ -122,12 +131,11 @@ async def ask(question: str, domain: str, state: dict[str, Any] | None) -> str:
         "birth_date": state["birth_date"],
         "birth_time": state["birth_time"],
     }
-    # Refresh gochar at ask time
     natal_asc = state["charts"]["d1"]["ascendant"]["longitude"]
     gochar = gochar_summary(natal_asc, state["latitude"], state["longitude"])
     context = build_context(profile, state["charts"], state["dasa"], gochar, resolved)  # type: ignore[arg-type]
     try:
-        answer = await ask_llm(question, context, resolved)  # type: ignore[arg-type]
+        answer = asyncio.run(ask_llm(question, context, resolved))  # type: ignore[arg-type]
     except Exception as exc:  # noqa: BLE001
         raise gr.Error(str(exc)) from exc
     return format_answer_html(answer)
@@ -187,5 +195,7 @@ with gr.Blocks(title="VedicAstro") as demo:
     answer = gr.HTML()
     ask_btn.click(ask, inputs=[question, domain, state], outputs=[answer])
 
+demo.queue()
+
 if __name__ == "__main__":
-    demo.queue().launch()
+    demo.launch(ssr_mode=False)
