@@ -8,8 +8,8 @@ from typing import Any
 from app.astrology import VIMSHOTTARI_ORDER, VIMSHOTTARI_YEARS, lon_to_nakshatra
 from app.astrology.charts import local_to_utc, _jd_ut, _planet_sidereal_lon
 
-
-DAYS_PER_YEAR = 365.2425
+# Common mainstream software (AstroSage / many JH defaults) uses 365.25d years.
+DAYS_PER_YEAR = 365.25
 
 
 def _add_years(start: datetime, years: float) -> datetime:
@@ -24,7 +24,6 @@ def compute_dasa(
 ) -> dict[str, Any]:
     """Build mahadasa and antardasa tables from birth Moon nakshatra."""
     dt_utc = local_to_utc(date_str, time_str, tz_offset_hours)
-    # Use local civil datetime for display anchors
     hour, minute = map(int, time_str.split(":")[:2])
     year, month, day = map(int, date_str.split("-"))
     birth_local = datetime(year, month, day, hour, minute)
@@ -33,9 +32,10 @@ def compute_dasa(
     moon_lon = _planet_sidereal_lon(jd, "Moon")
     _, nak_name, lord, frac = lon_to_nakshatra(moon_lon)
 
-    # Balance of first mahadasa remaining at birth
+    # Elapsed fraction of the birth nakshatra → elapsed mahadasa years already used up
     first_full_years = VIMSHOTTARI_YEARS[lord]
-    balance_years = first_full_years * (1.0 - frac)
+    elapsed_years = first_full_years * frac
+    balance_years = first_full_years - elapsed_years
 
     start_idx = VIMSHOTTARI_ORDER.index(lord)
     cursor = birth_local
@@ -44,7 +44,7 @@ def compute_dasa(
     mahadasas: list[dict[str, Any]] = []
     antardasas: list[dict[str, Any]] = []
 
-    # First (partial) mahadasa
+    # First (partial) mahadasa — remaining balance only
     maha_end = _add_years(cursor, balance_years)
     mahadasas.append(
         {
@@ -55,7 +55,14 @@ def compute_dasa(
             "partial": True,
         }
     )
-    _append_antardasas(antardasas, lord, cursor, balance_years, first_full_years)
+    _append_antardasas(
+        antardasas,
+        lord,
+        cursor,
+        maha_span_years=balance_years,
+        maha_full_years=first_full_years,
+        elapsed_years_at_start=elapsed_years,
+    )
     cursor = maha_end
 
     order_i = 1
@@ -72,28 +79,31 @@ def compute_dasa(
                 "partial": False,
             }
         )
-        _append_antardasas(antardasas, lord_i, cursor, years, years)
+        _append_antardasas(
+            antardasas,
+            lord_i,
+            cursor,
+            maha_span_years=years,
+            maha_full_years=years,
+            elapsed_years_at_start=0.0,
+        )
         cursor = maha_end
         order_i += 1
-        if order_i > 20:  # safety
+        if order_i > 20:
             break
 
     now = datetime.utcnow()
-    current_maha = None
-    current_antar = None
-    for m in mahadasas:
-        if m["start"] <= now.strftime("%Y-%m-%d") <= m["end"]:
-            current_maha = m
-            break
-    for a in antardasas:
-        if a["start"] <= now.strftime("%Y-%m-%d") <= a["end"]:
-            current_antar = a
-            break
+    today = now.strftime("%Y-%m-%d")
+    current_maha = next((m for m in mahadasas if m["start"] <= today <= m["end"]), None)
+    current_antar = next((a for a in antardasas if a["start"] <= today <= a["end"]), None)
 
     return {
         "moon_nakshatra": nak_name,
+        "moon_longitude": round(moon_lon, 4),
         "starting_lord": lord,
+        "elapsed_years_at_birth": round(elapsed_years, 4),
         "balance_years_at_birth": round(balance_years, 4),
+        "year_length_days": DAYS_PER_YEAR,
         "mahadasas": mahadasas,
         "antardasas": antardasas,
         "current_mahadasa": current_maha,
@@ -107,21 +117,38 @@ def _append_antardasas(
     maha_start: datetime,
     maha_span_years: float,
     maha_full_years: float,
+    elapsed_years_at_start: float = 0.0,
 ) -> None:
-    """Proportionally fill antardasas within a mahadasa span."""
+    """Append antardasas for a mahadasa.
+
+    For a partial first mahadasa, pass how many mahadasa-years were already elapsed
+    at birth. We skip that elapsed portion of the natural antardasa sequence instead
+    of compressing all nine antardasas into the remaining balance.
+    """
     start_idx = VIMSHOTTARI_ORDER.index(maha_lord)
-    # Ideal antardasa lengths sum to maha_full_years
-    ideal = []
+    portions: list[tuple[str, float]] = []
     for i in range(9):
         antar_lord = VIMSHOTTARI_ORDER[(start_idx + i) % 9]
         portion = (VIMSHOTTARI_YEARS[antar_lord] * maha_full_years) / 120.0
-        ideal.append((antar_lord, portion))
+        portions.append((antar_lord, portion))
 
-    # Scale to actual span (handles partial first mahadasa)
-    scale = maha_span_years / maha_full_years if maha_full_years else 1.0
+    skip = max(0.0, elapsed_years_at_start)
     cursor = maha_start
-    for antar_lord, portion in ideal:
-        years = portion * scale
+    remaining_span = maha_span_years
+
+    for antar_lord, portion in portions:
+        if remaining_span <= 1e-12:
+            break
+        if skip >= portion - 1e-12:
+            skip -= portion
+            continue
+
+        # If birth falls mid-antardasa, only the leftover of that antardasa remains.
+        usable = portion - skip
+        skip = 0.0
+        years = min(usable, remaining_span)
+        if years <= 1e-12:
+            break
         end = _add_years(cursor, years)
         out.append(
             {
@@ -133,3 +160,4 @@ def _append_antardasas(
             }
         )
         cursor = end
+        remaining_span -= years

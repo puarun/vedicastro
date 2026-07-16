@@ -88,7 +88,7 @@ def _resolve_birth_inputs(
     if timezone_offset.strip():
         tz = float(timezone_offset)
     else:
-        tz = estimate_timezone_offset(lon)
+        tz = estimate_timezone_offset(lon, resolved_place)
     return resolved_place, lat, lon, tz
 
 

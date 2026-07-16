@@ -51,7 +51,7 @@ def _resolve_place(
         lat = geo["latitude"]
         lon = geo["longitude"]
         resolved = geo["place"]
-    tz = float(timezone_offset) if timezone_offset.strip() else estimate_timezone_offset(lon)
+    tz = float(timezone_offset) if timezone_offset.strip() else estimate_timezone_offset(lon, resolved)
     return resolved, lat, lon, tz
 
 
@@ -154,7 +154,10 @@ with gr.Blocks(title="VedicAstro") as demo:
     with gr.Row():
         birth_date = gr.Textbox(label="Date (YYYY-MM-DD)", placeholder="1990-05-15")
         birth_time = gr.Textbox(label="Time (HH:MM)", placeholder="10:30")
-        timezone_offset = gr.Textbox(label="TZ offset hours", placeholder="5.5 for IST")
+        timezone_offset = gr.Textbox(
+            label="TZ offset hours (important for dasa)",
+            placeholder="5.5 for IST — do not leave blank if known",
+        )
     with gr.Accordion("Advanced: manual coordinates", open=False):
         with gr.Row():
             latitude = gr.Textbox(label="Latitude", placeholder="optional")

@@ -101,6 +101,12 @@ def dasa_html(dasa: dict[str, Any]) -> str:
         f"<p><strong>Current Antardasa:</strong> {escape(str(cur_a.get('maha_lord', '')))}–"
         f"{escape(str(cur_a.get('antar_lord', '—')))} "
         f"({escape(str(cur_a.get('start', '')))} → {escape(str(cur_a.get('end', '')))})</p>"
+        f"<p class=\"va-muted\">Birth Moon: {escape(str(dasa.get('moon_nakshatra', '')))} "
+        f"(lord {escape(str(dasa.get('starting_lord', '')))}) · "
+        f"balance at birth {dasa.get('balance_years_at_birth', '—')}y · "
+        f"year length {dasa.get('year_length_days', 365.25)}d</p>"
+        f"<p class=\"va-muted\">Tip: set TZ explicitly (e.g. 5.5 for IST). A 30-minute TZ error "
+        f"can shift dasa dates by months.</p>"
     )
     maha_rows = []
     for m in dasa.get("mahadasas", [])[:12]:
