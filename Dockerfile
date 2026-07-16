@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     LLM_PROVIDER=gemini \
     PORT=7860 \
     DATA_DIR=/data \
-    GEMINI_MODEL=gemini-2.0-flash
+    GEMINI_MODEL=gemini-2.5-flash-lite
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \

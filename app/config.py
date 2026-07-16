@@ -14,7 +14,7 @@ def _env(name: str, default: str = "") -> str:
 LLM_PROVIDER = _env("LLM_PROVIDER", "gemini").lower()
 
 GEMINI_API_KEY = _env("GEMINI_API_KEY")
-GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = _env("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
 OLLAMA_URL = _env("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_MODEL = _env("OLLAMA_MODEL", "qwen3:4b")
