@@ -1,15 +1,14 @@
 """
 VedicAstro — Hugging Face Gradio entrypoint (ZeroGPU-compatible).
 
-ZeroGPU Spaces require at least one `@spaces.GPU` function at startup.
-We decorate Ask AI; chart math stays on CPU.
+ZeroGPU requires at least one sync `@spaces.GPU` function at startup.
+Ask AI stays async (Gemini API); a tiny sync GPU stub satisfies ZeroGPU.
 """
 
 from __future__ import annotations
 
-import asyncio
 import os
-from typing import Any, Callable
+from typing import Any
 
 import gradio as gr
 
@@ -29,11 +28,12 @@ from app.ui_html import all_charts_html, dasa_html, gochar_html, planet_table_ht
 os.environ.setdefault("LLM_PROVIDER", "gemini")
 
 
-def _gpu(fn: Callable) -> Callable:
-    """Apply ZeroGPU decorator when running on Hugging Face Spaces."""
-    if spaces is None:
-        return fn
-    return spaces.GPU(fn)
+# ZeroGPU only supports sync callables. Keep a sync stub so the Space boots.
+if spaces is not None:
+
+    @spaces.GPU(duration=60)
+    def _zero_gpu_stub() -> str:
+        return "ok"
 
 
 def _resolve_place(
@@ -113,9 +113,8 @@ def refresh_style(chart_style: str, state: dict[str, Any] | None):
     return all_charts_html(state["charts"], style), state
 
 
-@_gpu
 async def ask(question: str, domain: str, state: dict[str, Any] | None) -> str:
-    """ZeroGPU-decorated entry for Q&A (required on ZeroGPU hardware)."""
+    """Gemini Q&A — async HTTP, no GPU required."""
     if not state or "charts" not in state:
         raise gr.Error("Generate a chart first, then ask a question.")
     if not (question or "").strip():
