@@ -5,6 +5,7 @@ colorFrom: yellow
 colorTo: green
 sdk: docker
 app_port: 7860
+suggested_hardware: cpu-basic
 pinned: false
 license: mit
 short_description: Vedic charts (D1/D9/D10), dasa, gochar, Gemini Q&A
