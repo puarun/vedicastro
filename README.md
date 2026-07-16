@@ -3,9 +3,10 @@ title: VedicAstro
 emoji: 🕉️
 colorFrom: yellow
 colorTo: green
-sdk: docker
-app_port: 7860
-suggested_hardware: cpu-basic
+sdk: gradio
+sdk_version: 5.49.1
+python_version: "3.12"
+app_file: gradio_app.py
 pinned: false
 license: mit
 short_description: Vedic charts (D1/D9/D10), dasa, gochar, Gemini Q&A
@@ -13,50 +14,54 @@ short_description: Vedic charts (D1/D9/D10), dasa, gochar, Gemini Q&A
 
 # VedicAstro
 
-Public demo of Vedic astrology charts (D1 / D9 / D10), Vimshottari dasa, gochar, and Q&A via **Gemini** (free tier).
+Public Gradio demo (Hugging Face **ZeroGPU** / free Gradio Spaces) for Vedic charts (D1 / D9 / D10), Vimshottari dasa, gochar, and Q&A via **Gemini**.
 
-## Branches
+Astrology math runs on CPU. Gemini is called over the API (no local model / no GPU required).
 
-| Branch | Purpose |
-|--------|---------|
-| `main` | Public demo — Hugging Face Spaces + Gemini |
-| `local-ai` | Private/local use — Ollama on your machine |
+## Space secrets
 
-## Hugging Face Spaces setup
+In **Settings → Secrets** add:
 
-1. Create a Space: **Docker** SDK, name e.g. `vedicastro`.
-2. Push this repo’s `main` branch to the Space (or connect a GitHub repo).
-3. In **Settings → Variables and secrets**, add secret:
-   - `GEMINI_API_KEY` = your key from [Google AI Studio](https://aistudio.google.com/apikey)
-4. Optional variables:
-   - `GEMINI_MODEL` (default `gemini-2.0-flash`)
-   - `LLM_PROVIDER=gemini` (already set in the Dockerfile)
+- `GEMINI_API_KEY` — from [Google AI Studio](https://aistudio.google.com/apikey)
 
-## Local run (main / Gemini)
+Optional:
+
+- `GEMINI_MODEL` (default `gemini-2.0-flash`)
+- `LLM_PROVIDER=gemini`
+
+## Hardware
+
+Use **ZeroGPU** (or free Gradio CPU if available). Do **not** use the Docker SDK on the free tier.
+
+If you previously created this Space as Docker, switch SDK back to **Gradio** in Settings (or recreate as Gradio + ZeroGPU).
+
+## Local run (Gradio)
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 export LLM_PROVIDER=gemini
 export GEMINI_API_KEY=your_key_here
-python run.py
+python gradio_app.py
 ```
 
-Open http://127.0.0.1:8000
-
-## Local run (`local-ai` / Ollama)
+## Local run (FastAPI + Ollama)
 
 ```bash
-git checkout local-ai
-# or on main:
 export LLM_PROVIDER=ollama
 export OLLAMA_MODEL=qwen3:4b
-ollama serve   # separate terminal
+ollama serve
 python run.py
 ```
+
+## Branches
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Public Gradio demo + Gemini |
+| `local-ai` | Ollama-focused local use |
 
 ## Notes
 
 - Sidereal Lahiri ayanamsa, whole-sign houses
-- SQLite profiles are ephemeral on free Spaces (reset on rebuild); fine for a demo
 - Set TZ offset explicitly when possible (e.g. `5.5` for IST)
