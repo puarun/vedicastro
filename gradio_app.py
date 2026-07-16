@@ -114,7 +114,7 @@ def refresh_style(chart_style: str, state: dict[str, Any] | None):
 
 
 @_gpu
-def ask(question: str, domain: str, state: dict[str, Any] | None) -> str:
+async def ask(question: str, domain: str, state: dict[str, Any] | None) -> str:
     """ZeroGPU-decorated entry for Q&A (required on ZeroGPU hardware)."""
     if not state or "charts" not in state:
         raise gr.Error("Generate a chart first, then ask a question.")
@@ -135,7 +135,7 @@ def ask(question: str, domain: str, state: dict[str, Any] | None) -> str:
     gochar = gochar_summary(natal_asc, state["latitude"], state["longitude"])
     context = build_context(profile, state["charts"], state["dasa"], gochar, resolved)  # type: ignore[arg-type]
     try:
-        answer = asyncio.run(ask_llm(question, context, resolved))  # type: ignore[arg-type]
+        answer = await ask_llm(question, context, resolved)  # type: ignore[arg-type]
     except Exception as exc:  # noqa: BLE001
         raise gr.Error(str(exc)) from exc
     return format_answer_html(answer)
