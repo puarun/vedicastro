@@ -104,9 +104,9 @@ def dasa_html(dasa: dict[str, Any]) -> str:
         f"<p class=\"va-muted\">Birth Moon: {escape(str(dasa.get('moon_nakshatra', '')))} "
         f"(lord {escape(str(dasa.get('starting_lord', '')))}) · "
         f"balance at birth {dasa.get('balance_years_at_birth', '—')}y · "
-        f"Vimshottari year = {dasa.get('year_length_days', 360)} days</p>"
+        f"Vimshottari year = {dasa.get('year_length_days', 365.25)} days</p>"
         f"<p class=\"va-muted\">Tip: set TZ explicitly (e.g. 5.5 for IST). Dasa years use "
-        f"traditional 360-day length (not solar 365.25).</p>"
+        f"solar 365.25-day length (DrikPanchang / AstroSage convention).</p>"
     )
     maha_rows = []
     for m in dasa.get("mahadasas", [])[:12]:

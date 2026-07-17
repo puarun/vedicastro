@@ -8,9 +8,10 @@ from typing import Any
 from app.astrology import VIMSHOTTARI_ORDER, VIMSHOTTARI_YEARS, lon_to_nakshatra
 from app.astrology.charts import local_to_utc, _jd_ut, _planet_sidereal_lon
 
-# Traditional Vimshottari uses 360-day (savana) years.
-# Using 365.25 drifts ~5.25 days per year (~6 months by mid-30s) vs most Indian software.
-DAYS_PER_YEAR = 360.0
+# Mainstream Indian software (DrikPanchang, AstroSage, JHora default) uses solar
+# 365.25-day years. Savana 360-day years drift ~5.25 days/year (~few months by
+# mid-30s / ~6 months by ~40) versus those tables — do not use 360 here.
+DAYS_PER_YEAR = 365.25
 
 
 def _add_years(start: datetime, years: float) -> datetime:
