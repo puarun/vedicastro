@@ -134,6 +134,7 @@ def build_context(
         f"Lat/Lon: {profile.get('latitude')}, {profile.get('longitude')}",
         f"Ayanamsa: {charts.get('ayanamsa_name')} {charts.get('ayanamsa')}",
         f"House system: {charts.get('house_system')}",
+        f"Rahu/Ketu node: {charts.get('rahu_node_type', 'mean')}",
         f"Moon nakshatra: {charts.get('moon_nakshatra')} (lord {charts.get('moon_nakshatra_lord')})",
         "",
         "=== Analysis focus ===",

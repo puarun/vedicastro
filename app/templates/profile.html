@@ -8,7 +8,7 @@
   <h1>{{ profile.name }}</h1>
   <p>{{ profile.birth_date }} {{ profile.birth_time }} · TZ {{ profile.timezone_offset }}h</p>
   <p class="muted">{{ profile.place }} ({{ '%.4f'|format(profile.latitude) }}, {{ '%.4f'|format(profile.longitude) }})</p>
-  <p class="muted">Ayanamsa {{ charts.ayanamsa_name }} {{ charts.ayanamsa }}° · Moon in {{ charts.moon_nakshatra }} ({{ charts.moon_nakshatra_lord }})</p>
+  <p class="muted">Ayanamsa {{ charts.ayanamsa_name }} {{ charts.ayanamsa }}° · Rahu {{ charts.rahu_node_type | default('mean') }} node · Moon in {{ charts.moon_nakshatra }} ({{ charts.moon_nakshatra_lord }})</p>
 
   <details class="edit-birth" {% if edit_error %}open{% endif %}>
     <summary>Edit birth details</summary>

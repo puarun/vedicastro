@@ -3,23 +3,47 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import swisseph as swe
 
-from app.astrology import PLANETS, SWE_IDS, house_from_asc, lon_to_nakshatra, lon_to_sign
+from app.astrology import (
+    PLANETS,
+    RAHU_NODE_TYPE,
+    SWE_IDS,
+    house_from_asc,
+    lon_to_nakshatra,
+    lon_to_sign,
+)
+
+# Bundled Swiss Ephemeris files (sepl/semo/seas). Without these, pyswisseph
+# silently falls back to the lower-precision Moshier ephemeris.
+_EPHE_DIR = Path(__file__).resolve().parents[1] / "ephe"
+if _EPHE_DIR.is_dir():
+    swe.set_ephe_path(str(_EPHE_DIR))
 
 # Lahiri ayanamsa
 swe.set_sid_mode(swe.SIDM_LAHIRI)
 
 
 def _jd_ut(dt_utc: datetime) -> float:
-    return swe.julday(
-        dt_utc.year,
-        dt_utc.month,
-        dt_utc.day,
-        dt_utc.hour + dt_utc.minute / 60.0 + dt_utc.second / 3600.0,
-    )
+    """Julian Day UT from a naive or aware UTC datetime."""
+    hour = dt_utc.hour + dt_utc.minute / 60.0 + dt_utc.second / 3600.0
+    # utc_to_jd accounts for leap seconds when converting civil UTC → UT.
+    try:
+        _jd_et, jd_ut = swe.utc_to_jd(
+            dt_utc.year,
+            dt_utc.month,
+            dt_utc.day,
+            dt_utc.hour,
+            dt_utc.minute,
+            float(dt_utc.second) + dt_utc.microsecond / 1e6,
+            swe.GREG_CAL,
+        )
+        return jd_ut
+    except Exception:
+        return swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, hour)
 
 
 def local_to_utc(date_str: str, time_str: str, tz_offset_hours: float) -> datetime:
@@ -39,12 +63,15 @@ def _planet_sidereal_lon(jd: float, planet: str) -> float:
 
 
 def _ascendant_sidereal(jd: float, lat: float, lon: float) -> float:
-    # houses_ex returns cusps; with sidereal flag use whole-sign from tropical then subtract ayanamsa
-    # Prefer: get tropical asc, subtract ayanamsa
-    cusps, ascmc = swe.houses(jd, lat, lon, b"P")
-    tropical_asc = ascmc[0]
-    ayanamsa = swe.get_ayanamsa_ut(jd)
-    return (tropical_asc - ayanamsa) % 360.0
+    """Sidereal ascendant (Lahiri) for whole-sign houses."""
+    flags = swe.FLG_SIDEREAL
+    try:
+        _cusps, ascmc = swe.houses_ex(jd, lat, lon, b"P", flags)
+        return ascmc[0] % 360.0
+    except Exception:
+        # Fallback: tropical Asc minus ayanamsa (equivalent for the Asc degree).
+        _cusps, ascmc = swe.houses(jd, lat, lon, b"P")
+        return (ascmc[0] - swe.get_ayanamsa_ut(jd)) % 360.0
 
 
 def navamsa_sign(lon: float) -> int:
@@ -157,6 +184,7 @@ def compute_charts(
         "ayanamsa": round(ayanamsa, 4),
         "ayanamsa_name": "Lahiri",
         "house_system": "Whole sign",
+        "rahu_node_type": RAHU_NODE_TYPE,
         "d1": {
             "ascendant": d1_asc,
             "planets": d1_planets,
