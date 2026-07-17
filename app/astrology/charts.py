@@ -20,15 +20,27 @@ from app.astrology import (
 # Bundled Swiss Ephemeris files (sepl/semo/seas). Without these, pyswisseph
 # silently falls back to the lower-precision Moshier ephemeris.
 _EPHE_DIR = Path(__file__).resolve().parents[1] / "ephe"
-if _EPHE_DIR.is_dir():
-    swe.set_ephe_path(str(_EPHE_DIR))
 
-# Lahiri ayanamsa
-swe.set_sid_mode(swe.SIDM_LAHIRI)
+# Swiss Ephemeris keeps ephemeris path + sidereal mode in process-global state.
+# The library default sidereal mode is Fagan/Bradley, which is ~0.9° from Lahiri
+# — exactly the "all planets off by about 1°" symptom. Re-apply on every calc.
+AYANAMSA_MODE = swe.SIDM_LAHIRI
+AYANAMSA_NAME = "Lahiri"
+
+
+def _ensure_swe_ready() -> None:
+    """Set ephemeris path and Lahiri ayanamsa before any calculation."""
+    if _EPHE_DIR.is_dir():
+        swe.set_ephe_path(str(_EPHE_DIR))
+    swe.set_sid_mode(AYANAMSA_MODE)
+
+
+_ensure_swe_ready()
 
 
 def _jd_ut(dt_utc: datetime) -> float:
     """Julian Day UT from a naive or aware UTC datetime."""
+    _ensure_swe_ready()
     hour = dt_utc.hour + dt_utc.minute / 60.0 + dt_utc.second / 3600.0
     # utc_to_jd accounts for leap seconds when converting civil UTC → UT.
     try:
@@ -54,6 +66,7 @@ def local_to_utc(date_str: str, time_str: str, tz_offset_hours: float) -> dateti
 
 
 def _planet_sidereal_lon(jd: float, planet: str) -> float:
+    _ensure_swe_ready()
     if planet == "Ketu":
         rahu_lon = _planet_sidereal_lon(jd, "Rahu")
         return (rahu_lon + 180.0) % 360.0
@@ -64,6 +77,7 @@ def _planet_sidereal_lon(jd: float, planet: str) -> float:
 
 def _ascendant_sidereal(jd: float, lat: float, lon: float) -> float:
     """Sidereal ascendant (Lahiri) for whole-sign houses."""
+    _ensure_swe_ready()
     flags = swe.FLG_SIDEREAL
     try:
         _cusps, ascmc = swe.houses_ex(jd, lat, lon, b"P", flags)
@@ -147,6 +161,7 @@ def compute_charts(
     tz_offset_hours: float,
 ) -> dict[str, Any]:
     """Compute D1, D9, D10 charts for a birth moment."""
+    _ensure_swe_ready()
     dt_utc = local_to_utc(date_str, time_str, tz_offset_hours)
     jd = _jd_ut(dt_utc)
 
@@ -182,7 +197,7 @@ def compute_charts(
         "datetime_utc": dt_utc.isoformat(timespec="minutes"),
         "julian_day": jd,
         "ayanamsa": round(ayanamsa, 4),
-        "ayanamsa_name": "Lahiri",
+        "ayanamsa_name": AYANAMSA_NAME,
         "house_system": "Whole sign",
         "rahu_node_type": RAHU_NODE_TYPE,
         "d1": {

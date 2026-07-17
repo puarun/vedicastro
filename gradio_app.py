@@ -78,8 +78,8 @@ def generate(
     summary = (
         f"**{name.strip() or 'Seeker'}** · {birth_date} {birth_time} (TZ {tz}h)\n\n"
         f"{resolved} ({lat:.4f}, {lon:.4f})\n\n"
-        f"Ayanamsa {charts['ayanamsa_name']} {charts['ayanamsa']}° · "
-        f"Rahu {charts.get('rahu_node_type', 'mean')} node · "
+        f"Ayanamsa **{charts['ayanamsa_name']}** {charts['ayanamsa']}° "
+        f"(Chitrapaksha) · Rahu {charts.get('rahu_node_type', 'mean')} node · "
         f"Moon in {charts['moon_nakshatra']} ({charts['moon_nakshatra_lord']}) · "
         f"AI: {llm_label()}"
     )

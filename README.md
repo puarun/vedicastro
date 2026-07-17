@@ -62,7 +62,8 @@ python run.py
 
 ## Notes
 
-- Sidereal Lahiri ayanamsa, whole-sign houses
+- Sidereal **Lahiri** ayanamsa, whole-sign houses
 - Rahu/Ketu use the **mean** lunar node (traditional Jyotish / DrikPanchang). True node can differ by up to ~1.5–1.9° and flip the sign/house near boundaries.
+- Swiss Ephemeris defaults to Fagan/Bradley (~0.9° from Lahiri). The app re-applies Lahiri on every calculation so positions stay aligned with DrikPanchang (typically within ~0.01°).
 - Swiss Ephemeris data files are bundled under `app/ephe/`
 - Set TZ offset explicitly when possible (e.g. `5.5` for IST)
