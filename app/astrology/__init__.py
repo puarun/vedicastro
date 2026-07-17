@@ -44,7 +44,10 @@ PLANETS = [
     "Ketu",
 ]
 
-# Swiss Ephemeris planet IDs (true node for Rahu)
+# Swiss Ephemeris planet IDs.
+# Mean Node for Rahu (SE_MEAN_NODE=10): traditional Jyotish / DrikPanchang default.
+# True Node (11) oscillates up to ~1.5–1.9° around the mean and can place Rahu/Ketu
+# in the previous sign (and whole-sign house) near boundaries.
 SWE_IDS = {
     "Sun": 0,
     "Moon": 1,
@@ -53,8 +56,10 @@ SWE_IDS = {
     "Mars": 4,
     "Jupiter": 5,
     "Saturn": 6,
-    "Rahu": 11,  # true node
+    "Rahu": 10,  # mean node
 }
+
+RAHU_NODE_TYPE = "mean"
 
 NAKSHATRAS = [
     "Ashwini",

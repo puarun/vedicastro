@@ -78,7 +78,8 @@ def generate(
     summary = (
         f"**{name.strip() or 'Seeker'}** · {birth_date} {birth_time} (TZ {tz}h)\n\n"
         f"{resolved} ({lat:.4f}, {lon:.4f})\n\n"
-        f"Ayanamsa {charts['ayanamsa_name']} {charts['ayanamsa']}° · "
+        f"Ayanamsa **{charts['ayanamsa_name']}** {charts['ayanamsa']}° "
+        f"(Chitrapaksha) · Rahu {charts.get('rahu_node_type', 'mean')} node · "
         f"Moon in {charts['moon_nakshatra']} ({charts['moon_nakshatra_lord']}) · "
         f"AI: {llm_label()}"
     )
@@ -144,7 +145,7 @@ with gr.Blocks(title="VedicAstro") as demo:
     gr.Markdown(
         "# VedicAstro\n"
         "Enter birth details for D1 / D9 / D10, Vimshottari dasa, gochar, then ask Gemini.\n\n"
-        f"*Provider: {llm_label()} · Sidereal Lahiri · Whole-sign houses*"
+        f"*Provider: {llm_label()} · Sidereal Lahiri · Mean Node Rahu/Ketu · Whole-sign houses*"
     )
     state = gr.State({})
 

@@ -2,24 +2,102 @@
 
 from __future__ import annotations
 
+import logging
+import urllib.request
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import swisseph as swe
 
-from app.astrology import PLANETS, SWE_IDS, house_from_asc, lon_to_nakshatra, lon_to_sign
+from app.astrology import (
+    PLANETS,
+    RAHU_NODE_TYPE,
+    SWE_IDS,
+    house_from_asc,
+    lon_to_nakshatra,
+    lon_to_sign,
+)
 
-# Lahiri ayanamsa
-swe.set_sid_mode(swe.SIDM_LAHIRI)
+logger = logging.getLogger(__name__)
+
+# Swiss Ephemeris planet/moon/asteroid files (1800–2400). Hugging Face rejects
+# these binaries in git pushes, so we download them on first use when missing.
+_EPHE_DIR = Path(__file__).resolve().parents[1] / "ephe"
+_EPHE_FILES = ("sepl_18.se1", "semo_18.se1", "seas_18.se1")
+_EPHE_URLS = (
+    "https://github.com/aloistr/swisseph/raw/master/ephe/",
+    "https://cdn.jsdelivr.net/gh/aloistr/swisseph@master/ephe/",
+)
+
+# Swiss Ephemeris keeps ephemeris path + sidereal mode in process-global state.
+# The library default sidereal mode is Fagan/Bradley, which is ~0.9° from Lahiri
+# — exactly the "all planets off by about 1°" symptom. Re-apply on every calc.
+AYANAMSA_MODE = swe.SIDM_LAHIRI
+AYANAMSA_NAME = "Lahiri"
+_ephe_ready = False
+
+
+def _download_ephe_files() -> None:
+    """Fetch SE data files into app/ephe/ if any are missing."""
+    _EPHE_DIR.mkdir(parents=True, exist_ok=True)
+    missing = [name for name in _EPHE_FILES if not (_EPHE_DIR / name).is_file()]
+    if not missing:
+        return
+    for name in missing:
+        dest = _EPHE_DIR / name
+        last_err: Exception | None = None
+        for base in _EPHE_URLS:
+            url = base + name
+            try:
+                urllib.request.urlretrieve(url, dest)
+                if dest.stat().st_size < 1000:
+                    dest.unlink(missing_ok=True)
+                    raise RuntimeError(f"ephe download too small: {url}")
+                last_err = None
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+                dest.unlink(missing_ok=True)
+        if last_err is not None:
+            logger.warning("Could not download %s (%s); using Moshier fallback", name, last_err)
+
+
+def _ensure_swe_ready() -> None:
+    """Set ephemeris path and Lahiri ayanamsa before any calculation."""
+    global _ephe_ready
+    if not _ephe_ready:
+        try:
+            _download_ephe_files()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Ephemeris download skipped: %s", exc)
+        _ephe_ready = True
+    if _EPHE_DIR.is_dir():
+        swe.set_ephe_path(str(_EPHE_DIR))
+    swe.set_sid_mode(AYANAMSA_MODE)
+
+
+_ensure_swe_ready()
 
 
 def _jd_ut(dt_utc: datetime) -> float:
-    return swe.julday(
-        dt_utc.year,
-        dt_utc.month,
-        dt_utc.day,
-        dt_utc.hour + dt_utc.minute / 60.0 + dt_utc.second / 3600.0,
-    )
+    """Julian Day UT from a naive or aware UTC datetime."""
+    _ensure_swe_ready()
+    hour = dt_utc.hour + dt_utc.minute / 60.0 + dt_utc.second / 3600.0
+    # utc_to_jd accounts for leap seconds when converting civil UTC → UT.
+    try:
+        _jd_et, jd_ut = swe.utc_to_jd(
+            dt_utc.year,
+            dt_utc.month,
+            dt_utc.day,
+            dt_utc.hour,
+            dt_utc.minute,
+            float(dt_utc.second) + dt_utc.microsecond / 1e6,
+            swe.GREG_CAL,
+        )
+        return jd_ut
+    except Exception:
+        return swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, hour)
 
 
 def local_to_utc(date_str: str, time_str: str, tz_offset_hours: float) -> datetime:
@@ -30,6 +108,7 @@ def local_to_utc(date_str: str, time_str: str, tz_offset_hours: float) -> dateti
 
 
 def _planet_sidereal_lon(jd: float, planet: str) -> float:
+    _ensure_swe_ready()
     if planet == "Ketu":
         rahu_lon = _planet_sidereal_lon(jd, "Rahu")
         return (rahu_lon + 180.0) % 360.0
@@ -39,12 +118,16 @@ def _planet_sidereal_lon(jd: float, planet: str) -> float:
 
 
 def _ascendant_sidereal(jd: float, lat: float, lon: float) -> float:
-    # houses_ex returns cusps; with sidereal flag use whole-sign from tropical then subtract ayanamsa
-    # Prefer: get tropical asc, subtract ayanamsa
-    cusps, ascmc = swe.houses(jd, lat, lon, b"P")
-    tropical_asc = ascmc[0]
-    ayanamsa = swe.get_ayanamsa_ut(jd)
-    return (tropical_asc - ayanamsa) % 360.0
+    """Sidereal ascendant (Lahiri) for whole-sign houses."""
+    _ensure_swe_ready()
+    flags = swe.FLG_SIDEREAL
+    try:
+        _cusps, ascmc = swe.houses_ex(jd, lat, lon, b"P", flags)
+        return ascmc[0] % 360.0
+    except Exception:
+        # Fallback: tropical Asc minus ayanamsa (equivalent for the Asc degree).
+        _cusps, ascmc = swe.houses(jd, lat, lon, b"P")
+        return (ascmc[0] - swe.get_ayanamsa_ut(jd)) % 360.0
 
 
 def navamsa_sign(lon: float) -> int:
@@ -120,6 +203,7 @@ def compute_charts(
     tz_offset_hours: float,
 ) -> dict[str, Any]:
     """Compute D1, D9, D10 charts for a birth moment."""
+    _ensure_swe_ready()
     dt_utc = local_to_utc(date_str, time_str, tz_offset_hours)
     jd = _jd_ut(dt_utc)
 
@@ -155,8 +239,9 @@ def compute_charts(
         "datetime_utc": dt_utc.isoformat(timespec="minutes"),
         "julian_day": jd,
         "ayanamsa": round(ayanamsa, 4),
-        "ayanamsa_name": "Lahiri",
+        "ayanamsa_name": AYANAMSA_NAME,
         "house_system": "Whole sign",
+        "rahu_node_type": RAHU_NODE_TYPE,
         "d1": {
             "ascendant": d1_asc,
             "planets": d1_planets,
