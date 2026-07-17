@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -17,19 +19,59 @@ from app.astrology import (
     lon_to_sign,
 )
 
-# Bundled Swiss Ephemeris files (sepl/semo/seas). Without these, pyswisseph
-# silently falls back to the lower-precision Moshier ephemeris.
+logger = logging.getLogger(__name__)
+
+# Swiss Ephemeris planet/moon/asteroid files (1800–2400). Hugging Face rejects
+# these binaries in git pushes, so we download them on first use when missing.
 _EPHE_DIR = Path(__file__).resolve().parents[1] / "ephe"
+_EPHE_FILES = ("sepl_18.se1", "semo_18.se1", "seas_18.se1")
+_EPHE_URLS = (
+    "https://github.com/aloistr/swisseph/raw/master/ephe/",
+    "https://cdn.jsdelivr.net/gh/aloistr/swisseph@master/ephe/",
+)
 
 # Swiss Ephemeris keeps ephemeris path + sidereal mode in process-global state.
 # The library default sidereal mode is Fagan/Bradley, which is ~0.9° from Lahiri
 # — exactly the "all planets off by about 1°" symptom. Re-apply on every calc.
 AYANAMSA_MODE = swe.SIDM_LAHIRI
 AYANAMSA_NAME = "Lahiri"
+_ephe_ready = False
+
+
+def _download_ephe_files() -> None:
+    """Fetch SE data files into app/ephe/ if any are missing."""
+    _EPHE_DIR.mkdir(parents=True, exist_ok=True)
+    missing = [name for name in _EPHE_FILES if not (_EPHE_DIR / name).is_file()]
+    if not missing:
+        return
+    for name in missing:
+        dest = _EPHE_DIR / name
+        last_err: Exception | None = None
+        for base in _EPHE_URLS:
+            url = base + name
+            try:
+                urllib.request.urlretrieve(url, dest)
+                if dest.stat().st_size < 1000:
+                    dest.unlink(missing_ok=True)
+                    raise RuntimeError(f"ephe download too small: {url}")
+                last_err = None
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+                dest.unlink(missing_ok=True)
+        if last_err is not None:
+            logger.warning("Could not download %s (%s); using Moshier fallback", name, last_err)
 
 
 def _ensure_swe_ready() -> None:
     """Set ephemeris path and Lahiri ayanamsa before any calculation."""
+    global _ephe_ready
+    if not _ephe_ready:
+        try:
+            _download_ephe_files()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Ephemeris download skipped: %s", exc)
+        _ephe_ready = True
     if _EPHE_DIR.is_dir():
         swe.set_ephe_path(str(_EPHE_DIR))
     swe.set_sid_mode(AYANAMSA_MODE)
