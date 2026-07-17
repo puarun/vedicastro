@@ -7,10 +7,8 @@ from typing import Any
 
 import swisseph as swe
 
-from app.astrology import PLANETS, house_from_asc, lon_to_nakshatra, lon_to_sign
-from app.astrology.charts import _ascendant_sidereal, _jd_ut, _planet_sidereal_lon
-
-swe.set_sid_mode(swe.SIDM_LAHIRI)
+from app.astrology import PLANETS, RAHU_NODE_TYPE, house_from_asc, lon_to_nakshatra, lon_to_sign
+from app.astrology.charts import _ascendant_sidereal, _ensure_swe_ready, _jd_ut, _planet_sidereal_lon
 
 # Approximate synodic / orbital periods (days) for "next sign change" estimates
 SIGN_CHANGE_DAYS = {
@@ -51,6 +49,7 @@ def current_gochar(
     when: datetime | None = None,
 ) -> dict[str, Any]:
     """Current sidereal planetary positions (gochar)."""
+    _ensure_swe_ready()
     when = when or datetime.utcnow()
     jd = _jd_ut(when)
     positions = {p: _planet_sidereal_lon(jd, p) for p in PLANETS}
@@ -59,6 +58,7 @@ def current_gochar(
     return {
         "when_utc": when.isoformat(timespec="minutes"),
         "ayanamsa": round(swe.get_ayanamsa_ut(jd), 4),
+        "rahu_node_type": RAHU_NODE_TYPE,
         "ascendant": _format_transit("Ascendant", asc) if asc is not None else None,
         "planets": [_format_transit(p, positions[p], natal_asc_lon) for p in PLANETS],
     }
@@ -69,6 +69,7 @@ def upcoming_sign_changes(
     natal_asc_lon: float | None = None,
 ) -> list[dict[str, Any]]:
     """Find upcoming sign ingresses for each planet within the window."""
+    _ensure_swe_ready()
     start = datetime.utcnow()
     events: list[dict[str, Any]] = []
 
